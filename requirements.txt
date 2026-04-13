@@ -3,3 +3,9 @@ langgraph
 langchain
 langchain-community
 pytest
+langchain-ollama
+langgraph
+pydantic
+pytest
+pymupdf
+duckduckgo-search
