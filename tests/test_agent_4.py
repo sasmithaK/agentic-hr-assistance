@@ -1,6 +1,6 @@
 import os
 import pytest
-from src.state.graph_state import GraphState
+from src.state.graph_state import AgentState
 from src.tools.file_tools import generate_pdf_report
 from src.agents.decision_agent import hr_decision_node
 
@@ -10,13 +10,13 @@ def test_generate_pdf_report_success():
     Validates that the specific custom Python tool generates the targeted PDF 
     and saves to the right location without throwing errors.
     """
-    mock_state: GraphState = {
-        "applicant_name": "Test Candidate",
-        "target_job": "Software Engineer",
-        "parsed_resume_text": "Knows Python tightly.",
-        "job_matching_matrix": "Match: 95%",
-        "gap_analysis_report": "Missing: Kubernetes",
-        "final_decision": "SUMMARY: Good candidate.\nRECOMMENDATION: Interview."
+    mock_state: AgentState = {
+        "input_resume_path": "",
+        "job_description": "Software Engineer",
+        "candidate_profile": {"name": "Test Candidate"},
+        "match_result": {"match_score": 95},
+        "gap_analysis": {"weaknesses": ["Kubernetes"]},
+        "final_output": "SUMMARY: Good candidate.\nRECOMMENDATION: Interview."
     }
     
     # Run tool
@@ -40,18 +40,18 @@ def test_decision_agent_formatting_and_constraints():
     Validates that the specific Agent correctly respects the system prompt 
     formatting constraints without hallucinating.
     """
-    mock_state: GraphState = {
-        "applicant_name": "John Doe",
-        "target_job": "Data Scientist",
-        "parsed_resume_text": "SQL, Python, Pandas.",
-        "job_matching_matrix": "Match 70%",
-        "gap_analysis_report": "Lacks Spark.",
-        "final_decision": None
+    mock_state: AgentState = {
+        "input_resume_path": "",
+        "job_description": "Data Scientist",
+        "candidate_profile": {"name": "John Doe", "skills": ["SQL", "Python", "Pandas"]},
+        "match_result": {"match_score": 70},
+        "gap_analysis": {"weaknesses": ["Spark"]},
+        "final_output": ""
     }
     
     # Run Agent
     new_state = hr_decision_node(mock_state)
-    decision = new_state.get("final_decision", "")
+    decision = new_state.get("final_output", "")
     
     # Enforce formatting constraints designed in the prompt
     assert "SUMMARY" in decision.upper(), "Agent hallucinated/failed to include SUMMARY section"
@@ -59,3 +59,4 @@ def test_decision_agent_formatting_and_constraints():
     
     # Enforce no fallback error
     assert "CRITICAL SYSTEM ERROR" not in decision
+

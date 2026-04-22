@@ -31,6 +31,8 @@ def test_database_retrieval():
     assert len(skills) > 0
     assert "Python" in skills
 
+@pytest.mark.skipif(os.system("curl -s http://localhost:11434/api/tags > /dev/null") != 0, 
+                    reason="Requires local Ollama instance running")
 def test_agent_matching_logic(mock_state):
     """LLM-as-a-Judge test: Validates that the agent's output is logical and accurate."""
     agent = JobMatchingAgent()
