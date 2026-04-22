@@ -5,6 +5,8 @@ from typing import Dict, Any
 from src.state.graph_state import AgentState
 from src.utils.logger import get_agent_logger
 from pypdf import PdfReader
+import pytesseract
+from pdf2image import convert_from_path
 
 logger = get_agent_logger("FileTools")
 
@@ -85,10 +87,50 @@ def read_resume_pdf(filepath: str) -> str:
                 text_content.append(text)
                 
         extracted_text = "\n".join(text_content)
-        logger.info(f"Tool Output: Successfully extracted {len(extracted_text)} characters from {filepath}")
+        
+        # OCR Fallback if standard parsing extracts 0 characters
+        if len(extracted_text.strip()) == 0:
+            logger.warning(f"Standard PDF extraction failed or returned 0 characters. Attempting OCR fallback for {filepath}")
+            try:
+                images = convert_from_path(filepath)
+                ocr_text = []
+                for img in images:
+                    ocr_text.append(pytesseract.image_to_string(img))
+                extracted_text = "\n".join(ocr_text)
+                logger.info(f"OCR Output: Successfully extracted {len(extracted_text)} characters.")
+            except Exception as ocr_err:
+                logger.error(f"OCR Fallback failed. Is Tesseract installed? Error: {str(ocr_err)}")
+                return f"Error: Standard extraction and OCR both failed -> {str(ocr_err)}"
+        else:
+            logger.info(f"Tool Output: Successfully extracted {len(extracted_text)} characters from {filepath}")
+            
         return extracted_text
         
     except Exception as e:
         logger.error(f"Tool Error: {str(e)}")
         return f"Error reading PDF: {str(e)}"
+
+def read_job_description(filepath: str) -> str:
+    """
+    Reads a Job Description from a plain text or markdown file.
+    
+    Args:
+        filepath (str): The path to the JD file.
+        
+    Returns:
+        str: The extracted text from the JD file, or an error message.
+    """
+    logger.info(f"Tool Invoke: read_job_description | Args: filepath='{filepath}'")
+    try:
+        if not os.path.exists(filepath):
+            return f"Error: JD file not found at {filepath}"
+            
+        with open(filepath, 'r', encoding='utf-8') as f:
+            text = f.read()
+            
+        logger.info(f"Tool Output: Successfully extracted {len(text)} characters from JD file.")
+        return text
+    except Exception as e:
+        logger.error(f"Tool Error: {str(e)}")
+        return f"Error reading JD: {str(e)}"
 
