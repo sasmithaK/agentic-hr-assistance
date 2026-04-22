@@ -1,28 +1,30 @@
 from langchain_community.chat_models import ChatOllama
 from langchain_core.messages import SystemMessage, HumanMessage
-from src.state.graph_state import GraphState
+from src.state.graph_state import AgentState
 from src.utils.logger import get_agent_logger
+import json
 
 logger = get_agent_logger("DecisionAgent")
 
-def hr_decision_node(state: GraphState) -> GraphState:
+def hr_decision_node(state: AgentState) -> AgentState:
     """
     The HR Decision Agent node that intakes parsed data, job matches, and gap analysis
     to generate a final hiring recommendation using Ollama (llama3). 
     It ensures no hallucinations by strictly synthesizing the provided state data.
     
     Args:
-        state (GraphState): The LangGraph global context object.
+        state (AgentState): The LangGraph global context object.
         
     Returns:
-        GraphState: The updated global state with the `final_decision` populated.
+        AgentState: The updated global state with the `final_output` populated.
     """
-    logger.info(f"Starting Decision Agent evaluation for {state.get('applicant_name', 'Unknown')}")
+    candidate_name = state.get("candidate_profile", {}).get("name", "Unknown")
+    logger.info(f"Starting Decision Agent evaluation for {candidate_name}")
     
     # 1. Initialize our local LLM 
     # Using llama3:8b as per assignment default. 
     # temperature=0 to drastically reduce hallucination and ensure factual synthesis of input data
-    llm = ChatOllama(model="llama3", temperature=0.0)
+    llm = ChatOllama(model="llama3:8b", temperature=0.0)
 
     # 2. Design the Persona & Constraints System Prompt (Requirement #1)
     # Using strict rules to prevent hallucination.
@@ -41,19 +43,19 @@ def hr_decision_node(state: GraphState) -> GraphState:
 
     # 3. Assemble the prompt context from global State
     user_content = f"""
-    Please evaluate the following candidate for the "{state.get('target_job')}" position.
+    Please evaluate the following candidate for the "{state.get('job_description', 'Unknown Position')}" position.
     
     --- DATA TO SYNTHESIZE ---
-    APPLICANT NAME: {state.get('applicant_name')}
+    APPLICANT NAME: {candidate_name}
     
     PARSED RESUME: 
-    {state.get('parsed_resume_text', 'No parsed data provided.')}
+    {json.dumps(state.get('candidate_profile', {}), indent=2)}
     
     JOB MATCHING MATRIX:
-    {state.get('job_matching_matrix', 'No matching matrix provided.')}
+    {json.dumps(state.get('match_result', {}), indent=2)}
     
     GAP ANALYSIS REPORT:
-    {state.get('gap_analysis_report', 'No gap analysis provided.')}
+    {json.dumps(state.get('gap_analysis', {}), indent=2)}
     --------------------------
     
     Based ONLY on the data provided above, generate your FINAL DECISION report following the required FORMATTING constraints.
@@ -71,11 +73,11 @@ def hr_decision_node(state: GraphState) -> GraphState:
         final_decision_text = response.content
         
         # 5. Update State robustly
-        state["final_decision"] = final_decision_text
+        state["final_output"] = final_decision_text
         logger.info("Successfully generated Final HR Decision")
         
     except Exception as e:
         logger.error(f"Agent failed to generate decision: {str(e)}")
-        state["final_decision"] = f"CRITICAL SYSTEM ERROR in Decision Agent: {str(e)}"
+        state["final_output"] = f"CRITICAL SYSTEM ERROR in Decision Agent: {str(e)}"
         
     return state

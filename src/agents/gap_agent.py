@@ -1,21 +1,37 @@
-from typing import Dict, Any, List
+from typing import Dict, Any
 from langchain_ollama import ChatOllama
+from langchain_core.messages import SystemMessage, HumanMessage
 from src.state.graph_state import AgentState
-from src.tools.search_tools import search_web
-from src.utils.logger import logger
+from src.tools.search_tools import search_duckduckgo
+from src.utils.logger import get_agent_logger
+import json
+import re
+
+logger = get_agent_logger("GapAgent")
 
 class GapAnalysisAgent:
     """
     Agent 3: Gap Analysis Agent
-    Identifies missing skills and searches for learning resources to fill those gaps.
+    Responsible for identifying the severity of missing skills and checking context 
+    using the DuckDuckGo search tool if certain candidate skills are unfamiliar.
     """
     
     def __init__(self, model_name: str = "llama3:8b"):
-        self.llm = ChatOllama(model=model_name, temperature=0)
+        self.llm = ChatOllama(model=model_name, temperature=0.0)
         self.persona = """
-        You are a Learning and Development Specialist. Your task is to identify skill gaps 
-        and recommend learning resources to help candidates improve their qualifications.
-        Be practical, encouraging, and specific in your recommendations.
+        You are a highly analytical HR Technical Assessor.
+        Your job is to perform a gap analysis on a candidate based on their match results.
+        
+        CRITICAL CONSTRAINTS:
+        1. If you are uncertain about a skill, use web search context (if provided).
+        2. DO NOT invent skills.
+        3. Respond ONLY in the following JSON format:
+        {
+            "strengths": ["<strength 1>", "<strength 2>"],
+            "weaknesses": ["<weakness 1>", "<weakness 2>"],
+            "risk_level": "<Low | Medium | High>",
+            "analysis_summary": "<Short sentence summarizing the gap>"
+        }
         """
 
     def process(self, state: AgentState) -> Dict[str, Any]:
@@ -23,91 +39,66 @@ class GapAnalysisAgent:
         
         job_title = state.get("job_description", "")
         match_result = state.get("match_result", {})
-        candidate_profile = state.get("candidate_profile", {})
-        
-        # Extract missing skills from previous agent's analysis
         missing_skills = match_result.get("missing_skills", [])
         
-        if not missing_skills:
-            logger.info("No missing skills found. Gap analysis not needed.")
-            return {"gap_analysis": {"status": "No gaps identified", "recommendations": []}}
+        # 1. Use Tool: Search web for context on the most critical missing skill or unknown elements
+        web_context = ""
+        if missing_skills:
+            # Pick the first missing skill to search for its importance in the role
+            query = f"Importance of {missing_skills[0]} for {job_title}"
+            logger.info(f"Using search tool to contextualize missing skill: {missing_skills[0]}")
+            search_results = search_duckduckgo(query)
+            
+            if search_results:
+                web_context = "WEB SEARCH CONTEXT FOR MISSING SKILL:\n"
+                for r in search_results:
+                    web_context += f"- {r.get('body', '')}\n"
         
-        logger.info(f"Analyzing gaps for {len(missing_skills)} missing skills: {missing_skills}")
-        
-        # Search for learning resources for each missing skill
-        learning_resources = {}
-        for skill in missing_skills:
-            search_query = f"learn {skill} online tutorial course"
-            search_results = search_web(search_query, max_results=3)
-            learning_resources[skill] = search_results
-        
-        # Use LLM to analyze gaps and provide recommendations
+        # 2. Prepare LLM prompt
         prompt = f"""
         {self.persona}
         
         JOB TITLE: {job_title}
-        CANDIDATE NAME: {candidate_profile.get('name', 'N/A')}
+        MATCH SCORE: {match_result.get('match_score', 0)}%
+        MATCHED SKILLS: {', '.join(match_result.get('matched_skills', []))}
         MISSING SKILLS: {', '.join(missing_skills)}
         
-        LEARNING RESOURCES FOUND:
-        {self._format_learning_resources(learning_resources)}
+        {web_context}
         
-        TASK:
-        1. Analyze the skill gaps critically
-        2. Prioritize which skills are most important to learn first
-        3. Provide specific, actionable recommendations
-        4. Suggest a realistic learning timeline
-        
-        Respond ONLY in the following JSON format:
-        {{
-            "gap_severity": "<low|medium|high>",
-            "priority_skills": [<most important skills to learn first>],
-            "recommendations": [<specific actionable advice>],
-            "learning_timeline": "<estimated time to fill gaps>",
-            "overall_assessment": "<brief summary of gap analysis>"
-        }}
+        TASK: Output the final gap analysis JSON based on the above data.
         """
         
         try:
-            response = self.llm.invoke(prompt)
+            logger.info("Calling local Llama3 model via ChatOllama for gap analysis...")
+            messages = [
+                SystemMessage(content=self.persona),
+                HumanMessage(content=prompt)
+            ]
+            response = self.llm.invoke(messages)
             
-            # Parse JSON response
-            import json
-            import re
-            
+            # 3. Parse JSON output securely
             json_match = re.search(r'\{.*\}', response.content, re.DOTALL)
             if json_match:
-                analysis_result = json.loads(json_match.group())
+                gap_analysis = json.loads(json_match.group())
             else:
-                # Fallback if LLM fails to return JSON
-                analysis_result = {
-                    "gap_severity": "medium",
-                    "priority_skills": missing_skills,
-                    "recommendations": ["Focus on learning the missing skills through online courses"],
-                    "learning_timeline": "2-3 months",
-                    "overall_assessment": "Candidate has potential but needs skill development"
+                logger.warning("LLM failed to output JSON, falling back to manual error extraction.")
+                gap_analysis = {
+                    "strengths": match_result.get('matched_skills', []),
+                    "weaknesses": missing_skills,
+                    "risk_level": "High" if match_result.get('match_score', 0) < 50 else "Medium",
+                    "analysis_summary": "Failed to parse LLM structured output."
                 }
-            
-            # Add learning resources to the result
-            analysis_result["learning_resources"] = learning_resources
-            
-            logger.info(f"Agent Output: Gap analysis completed - Severity: {analysis_result.get('gap_severity')}")
-            return {"gap_analysis": analysis_result}
+                
+            logger.info(f"Agent Output: Gap Analysis Risk Level -> {gap_analysis.get('risk_level', 'Unknown')}")
+            return {"gap_analysis": gap_analysis}
             
         except Exception as e:
             logger.error(f"Agent Error: {str(e)}")
-            return {"gap_analysis": {"error": str(e), "status": "Analysis failed"}}
-    
-    def _format_learning_resources(self, resources: Dict[str, List[str]]) -> str:
-        """Helper method to format learning resources for the prompt."""
-        formatted = ""
-        for skill, results in resources.items():
-            formatted += f"\n{skill}:\n"
-            for i, result in enumerate(results, 1):
-                formatted += f"  {i}. {result}\n"
-        return formatted
+            return {"gap_analysis": {"error": str(e)}}
 
 # Function to be used as a node in LangGraph
-def gap_analysis_node(state: AgentState) -> Dict[str, Any]:
+def gap_analysis_node(state: AgentState) -> AgentState:
     agent = GapAnalysisAgent()
-    return agent.process(state)
+    result = agent.process(state)
+    state["gap_analysis"] = result.get("gap_analysis", {})
+    return state
