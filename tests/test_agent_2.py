@@ -35,10 +35,7 @@ def test_jd_file_readable():
     assert len(content) > 50, "JD file appears to be empty or too short"
     assert "Python" in content, "JD should mention Python as a required skill"
 
-@pytest.mark.skipif(
-    os.system("curl -s http://localhost:11434/api/tags > /dev/null") != 0,
-    reason="Requires local Ollama instance running"
-)
+@pytest.mark.ollama
 def test_agent_matching_logic(mock_state):
     """LLM-as-a-Judge test: Validates that the match agent output is logical and accurate."""
     agent = JobMatchingAgent()
