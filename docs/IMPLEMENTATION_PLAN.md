@@ -84,11 +84,11 @@ This system **strictly prohibits** paid API keys.
 ### 6. CLI Interface
 **Single Resume:**
 ```bash
-python src/main.py --resume "local_data/input_resumes/cv.pdf" --jd "local_data/job_description/jd_software_engineer.txt"
+python -m src.main --resume "local_data/input_resumes/cv.pdf" --jd "local_data/job_description/jd_software_engineer.txt"
 ```
 **Batch Mode:**
 ```bash
-python src/main.py --folder "local_data/input_resumes" --jd "local_data/job_description/jd_software_engineer.txt"
+python -m src.main --folder "local_data/input_resumes" --jd "local_data/job_description/jd_software_engineer.txt"
 ```
 
 ---
