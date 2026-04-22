@@ -4,3 +4,5 @@ __pycache__/
 .pytest_cache/
 execution_trace.log
 *.db
+local_data/input_resumes/*.pdf
+local_data/output_reports/*.pdf

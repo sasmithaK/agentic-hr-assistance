@@ -1,6 +1,9 @@
-langchain-ollama
+fpdf2
 langgraph
+langchain
+langchain-community
+langchain-ollama
 pydantic
 pytest
-pymupdf
+pypdf
 duckduckgo-search
