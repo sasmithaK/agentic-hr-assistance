@@ -12,3 +12,4 @@ matplotlib
 pytesseract
 pdf2image
 wikipedia
+requests
