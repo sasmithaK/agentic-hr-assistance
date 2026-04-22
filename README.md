@@ -1,9 +1,144 @@
 # HR Candidate Screening Support Assistant 🤖📁
 
-![Agentic AI Architecture](https://img.shields.io/badge/Architecture-LangGraph-blue)
-![LLM Setup](https://img.shields.io/badge/LLM-Local_Ollama-green)
+![Architecture](https://img.shields.io/badge/Architecture-LangGraph-blue)
+![LLM](https://img.shields.io/badge/LLM-Local_Ollama-green)
+![Cost](https://img.shields.io/badge/Cloud_Cost-Zero-success)
+![Python](https://img.shields.io/badge/Python-3.10+-yellow)
 
-A local, AI-powered system that automates the HR candidate screening process. It uses four specialized AI "agents" that work together to read resumes, match skills to a job description, find skill gaps, and make a final hiring decision.
+A fully autonomous, locally-hosted **Multi-Agent System (MAS)** that automates the HR candidate screening process. A team of four specialized AI agents work in sequence to read resumes, semantically compare them to a Job Description file, identify skill gaps using web research, and produce a final hiring recommendation — complete with a ranked CSV overview and data visualizations.
+
+> **CTSE Assignment 2 — SE4010 | Sri Lanka Institute of Information Technology**
+
+---
+
+## 🚀 What It Does
+
+*   **📄 Reads Resumes:** Extracts text from candidate PDF resumes (with OCR fallback for image-based PDFs).
+*   **📋 Reads Job Descriptions:** Parses a plain-text JD file, enabling semantic matching rather than rigid keyword lookup.
+*   **🎯 Matches Skills Semantically:** Compares candidate profiles against the full JD context using a local LLM.
+*   **🔍 Finds Gaps:** Uses real-time DuckDuckGo web search to assess the severity of missing skills.
+*   **⚖️ Makes Decisions:** Generates individual PDF reports with a Hire / Interview / Reject recommendation.
+*   **📊 Batch Processing:** Process an entire folder of resumes and receive a ranked `Master_Ranking_Overview.csv` and a visual `Candidate_Scores_Chart.png`.
+*   **🔒 Free and Private:** Runs entirely locally via **Ollama** — no cloud API keys required.
+
+---
+
+## 👥 Team Contributions
+
+Each member designed one agent, one real-world tool, and one automated test suite.
+
+| Team Member | Agent Designed | Tool Implemented | Real-World Interaction | Testing Strategy |
+| :--- | :--- | :--- | :--- | :--- |
+| **Sasmitha** | Resume Parsing Agent | `read_resume_pdf` | File System (PDF + OCR) | LLM-as-a-Judge (hallucination check) |
+| **Isara** | Job Matching Agent | `read_job_description` | File System (JD text file) | Property-based score assertion |
+| **Olivea** | Gap Analysis Agent | `search_duckduckgo` | Free Public Web API | LLM-as-a-Judge (risk misclassification check) |
+| **Dinithi** | HR Decision Agent | `generate_ranked_csv` + `generate_score_graphs` | File System (CSV + PNG write) | Output formatting & file creation assertion |
+
+---
+
+## 📂 Repository Structure
+
+```text
+agentic-hr-assistance/
+├── src/
+│   ├── main.py                  # LangGraph orchestrator & batch loop
+│   ├── state/
+│   │   └── graph_state.py       # AgentState & BatchState TypedDict
+│   ├── utils/
+│   │   └── logger.py            # Centralized observability logger
+│   ├── agents/
+│   │   ├── resume_agent.py      # Agent 1 (Sasmitha)
+│   │   ├── match_agent.py       # Agent 2 (Isara)
+│   │   ├── gap_agent.py         # Agent 3 (Olivea)
+│   │   └── decision_agent.py    # Agent 4 (Dinithi)
+│   └── tools/
+│       ├── file_tools.py        # PDF reader (+ OCR), JD reader, PDF report writer
+│       ├── search_tools.py      # DuckDuckGo web search
+│       └── reporting_tools.py   # CSV ranking & Matplotlib chart generation
+├── tests/
+│   ├── llm_evaluator.py         # Shared LLM-as-a-judge helper
+│   ├── test_agent_1.py
+│   ├── test_agent_2.py
+│   ├── test_agent_3.py
+│   └── test_agent_4.py
+├── local_data/
+│   ├── input_resumes/           # Place candidate PDFs here
+│   ├── output_reports/          # Individual PDFs, Master CSV, and Chart PNG
+│   └── job_description/         # Job Description text files
+│       └── jd_software_engineer.txt
+├── docs/                        # Technical Report, Agent Docs, Implementation Plan
+├── execution_trace.log          # AgentOps observability trace
+└── requirements.txt
+```
+
+---
+
+## ⚙️ Setup Instructions
+
+### 1. Prerequisites
+*   **Python 3.10** or higher.
+*   **Ollama** installed locally — [Download here](https://ollama.com/download).
+
+### 2. Install Dependencies
+```bash
+pip install -r requirements.txt
+```
+
+### 3. Pull the Local LLM
+Ensure Ollama is running, then pull a model. `phi3` is recommended for speed:
+```bash
+ollama run phi3
+```
+*Or for higher accuracy:*
+```bash
+ollama run llama3:8b
+```
+
+### 4. Prepare Job Description
+Edit or create a plain-text JD file describing the role requirements:
+```
+local_data/job_description/jd_software_engineer.txt
+```
+
+---
+
+## 💻 How to Use It
+
+### Batch Mode (Recommended — Multiple Resumes)
+Place all PDF resumes into `local_data/input_resumes/`, then run:
+```bash
+python src/main.py --folder "local_data/input_resumes" --jd "local_data/job_description/jd_software_engineer.txt"
+```
+
+### Single Resume Mode
+```bash
+python src/main.py --resume "local_data/input_resumes/applicant_1.pdf" --jd "local_data/job_description/jd_software_engineer.txt"
+```
+
+### Outputs
+After a batch run, check `local_data/output_reports/` for:
+*   Individual `<CandidateName>_report.pdf` per resume.
+*   `Master_Ranking_Overview.csv` — candidates ranked from highest to lowest match score.
+*   `Candidate_Scores_Chart.png` — color-coded bar chart (🟢 ≥70%, 🟡 ≥40%, 🔴 <40%).
+*   `execution_trace.log` — full observability trace of every agent and tool call.
+
+---
+
+## 🧪 Testing
+
+We use **pytest** with an **LLM-as-a-Judge** evaluation strategy. A secondary Ollama instance audits each agent's output for hallucinations and structural correctness.
+
+```bash
+pytest tests/
+```
+
+| Test File | Agent Tested | What It Validates |
+| :--- | :--- | :--- |
+| `test_agent_1.py` | Resume Parser | No hallucinated skills in extracted profile |
+| `test_agent_2.py` | Job Matcher | Match score is valid integer; JSON structure is correct |
+| `test_agent_3.py` | Gap Analyzer | Risk level not misclassified; no invented weaknesses |
+| `test_agent_4.py` | Decision Agent | PDF created; output contains required headers |
+
 
 
 ## 🚀 What It Does
