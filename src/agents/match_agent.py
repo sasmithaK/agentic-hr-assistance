@@ -1,79 +1,85 @@
+import json
+import re
 from typing import Dict, Any
 from langchain_ollama import ChatOllama
 from src.state.graph_state import AgentState
-from src.tools.database_tools import query_skills_db
-from src.utils.logger import logger
+from src.tools.file_tools import read_job_description
+from src.utils.logger import get_agent_logger
+
+logger = get_agent_logger("MatchAgent")
 
 class JobMatchingAgent:
     """
     Agent 2: Job Matching Agent
-    Responsible for comparing candidate skills with the required skills for a role.
+    Responsible for semantically comparing a candidate's profile against a
+    Job Description file, returning a 0-100 match score with reasoning.
     """
     
     def __init__(self, model_name: str = "llama3:8b"):
         self.llm = ChatOllama(model=model_name, temperature=0)
-        self.persona = """
-        You are a Precision-oriented HR Data Analyst. Your task is to calculate the alignment between a candidate's profile and the job's required skills.
-        Be objective, thorough, and quantitative in your assessment.
-        """
+        self.persona = """You are a Precision-oriented HR Data Analyst.
+        Your task is to calculate the alignment between a candidate's profile and a full Job Description.
+        Be objective, thorough, and strictly quantitative in your assessment.
+        You MUST return valid JSON only — no extra text, no markdown fences."""
 
     def process(self, state: AgentState) -> Dict[str, Any]:
         logger.info("Agent Node: Job Matching Agent starting...")
         
-        job_title = state.get("job_description", "")
+        jd_filepath = state.get("job_description", "")
         candidate_profile = state.get("candidate_profile", {})
-        
-        # 1. Retrieve required skills from DB tool
-        required_skills = query_skills_db(job_title)
-        
-        if not required_skills:
-            logger.warning(f"No reference skills found for {job_title}. Skipping precise match.")
-            return {"match_result": {"score": 0, "matched_skills": [], "status": "No database entry for job title"}}
-
         candidate_skills = candidate_profile.get("skills", [])
         
-        # 2. Use LLM to perform nuanced comparison
+        # 1. Tool: Read the full Job Description from file (real-world file interaction)
+        jd_text = read_job_description(jd_filepath)
+        
+        if jd_text.startswith("Error:"):
+            logger.error(f"Failed to read JD file: {jd_text}")
+            return {"match_result": {"match_score": 0, "matched_skills": [], "missing_skills": [], "reasoning": jd_text}}
+
+        # 2. Use LLM for semantic, context-aware comparison against the full JD
         prompt = f"""
         {self.persona}
         
-        JOB TITLE: {job_title}
-        REQUIRED SKILLS (from Database): {', '.join(required_skills)}
+        ===JOB DESCRIPTION===
+        {jd_text}
+        =====================
         
         CANDIDATE NAME: {candidate_profile.get('name', 'N/A')}
         CANDIDATE SKILLS: {', '.join(candidate_skills)}
+        CANDIDATE EXPERIENCE: {candidate_profile.get('experience_years', 'N/A')} years
+        CANDIDATE EDUCATION: {candidate_profile.get('education', 'N/A')}
         
         TASK:
-        1. Identify which required skills the candidate possesses.
-        2. Identify which required skills are missing.
-        3. Calculate a match score (0-100%) based on skill coverage.
+        1. Read the full Job Description carefully.
+        2. Identify which candidate skills MATCH the JD requirements.
+        3. Identify which key JD requirements the candidate is MISSING.
+        4. Calculate an overall match_score (integer from 0 to 100) based on skill and experience fit.
         
-        Respond ONLY in the following JSON format:
+        Return ONLY this JSON (no markdown, no extra text):
         {{
-            "match_score": <int>,
-            "matched_skills": [<skills found>],
-            "missing_skills": [<skills missing>],
-            "reasoning": "<short explanation>"
+            "match_score": <integer 0-100>,
+            "matched_skills": ["<skill>"],
+            "missing_skills": ["<skill>"],
+            "reasoning": "<one sentence explanation of score>"
         }}
         """
         
         try:
+            logger.info("Calling local Llama3 model via ChatOllama for semantic JD matching...")
             response = self.llm.invoke(prompt)
-            # In a real scenario, we'd parse the JSON from response.content
-            # For simplicity and robustness in this assignment, we use a simple parser
-            import json
-            import re
             
-            # Extract JSON from potential Markdown blocks
+            # Robustly extract JSON from LLM response
             json_match = re.search(r'\{.*\}', response.content, re.DOTALL)
             if json_match:
                 result = json.loads(json_match.group())
+                # Enforce match_score as an integer
+                result["match_score"] = int(result.get("match_score", 0))
             else:
-                # Fallback if LLM fails to return JSON
                 result = {
                     "match_score": 0,
                     "matched_skills": [],
-                    "missing_skills": required_skills,
-                    "reasoning": "Failed to parse LLM response"
+                    "missing_skills": [],
+                    "reasoning": "LLM failed to output valid JSON."
                 }
                 
             logger.info(f"Agent Output: Calculated Match Score: {result.get('match_score')}%")
@@ -81,9 +87,10 @@ class JobMatchingAgent:
             
         except Exception as e:
             logger.error(f"Agent Error: {str(e)}")
-            return {"match_result": {"error": str(e)}}
+            return {"match_result": {"match_score": 0, "error": str(e)}}
 
-# Function to be used as a node in LangGraph
-def job_matching_node(state: AgentState) -> Dict[str, Any]:
-    agent = JobMatchingAgent()
+# LangGraph node entrypoint
+def job_matching_node(state: AgentState, model_name: str = "llama3:8b") -> AgentState:
+    agent = JobMatchingAgent(model_name=model_name)
     return agent.process(state)
+

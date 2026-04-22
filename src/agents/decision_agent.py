@@ -6,28 +6,27 @@ import json
 
 logger = get_agent_logger("DecisionAgent")
 
-def hr_decision_node(state: AgentState) -> AgentState:
+def hr_decision_node(state: AgentState, model_name: str = "llama3:8b") -> AgentState:
     """
     The HR Decision Agent node that intakes parsed data, job matches, and gap analysis
-    to generate a final hiring recommendation using Ollama (llama3). 
-    It ensures no hallucinations by strictly synthesizing the provided state data.
-    
+    to generate a final hiring recommendation using a local Ollama model.
+    Accepts model_name to support runtime model switching via --model CLI flag.
+
     Args:
         state (AgentState): The LangGraph global context object.
-        
+        model_name (str): The Ollama model to use. Defaults to llama3:8b.
+
     Returns:
-        AgentState: The updated global state with the `final_output` populated.
+        AgentState: The updated global state with `final_output` populated.
     """
     candidate_name = state.get("candidate_profile", {}).get("name", "Unknown")
     logger.info(f"Starting Decision Agent evaluation for {candidate_name}")
-    
-    # 1. Initialize our local LLM 
-    # Using llama3:8b as per assignment default. 
-    # temperature=0 to drastically reduce hallucination and ensure factual synthesis of input data
-    llm = ChatOllama(model="llama3:8b", temperature=0.0)
 
-    # 2. Design the Persona & Constraints System Prompt (Requirement #1)
-    # Using strict rules to prevent hallucination.
+    # Initialize local LLM with the selected model
+    # temperature=0 ensures deterministic, factual synthesis with minimal hallucination
+    llm = ChatOllama(model=model_name, temperature=0.0)
+
+    # Strict persona & formatting system prompt
     system_prompt = """You are an elite, evidence-based Senior HR Executive. 
     Your objective is to provide a FINAL DECISION (Hire / Reject / Interview) for a candidate.
     
@@ -41,7 +40,7 @@ def hr_decision_node(state: AgentState) -> AgentState:
        
     Provide a clear, unbiased assessment based purely on facts."""
 
-    # 3. Assemble the prompt context from global State
+    # Assemble full context from global state
     user_content = f"""
     Please evaluate the following candidate for the "{state.get('job_description', 'Unknown Position')}" position.
     
@@ -60,24 +59,19 @@ def hr_decision_node(state: AgentState) -> AgentState:
     
     Based ONLY on the data provided above, generate your FINAL DECISION report following the required FORMATTING constraints.
     """
-    
+
     try:
-        # 4. Invoke LLM and capture output
-        logger.info("Calling local Llama3 model via ChatOllama...")
+        logger.info(f"Calling {model_name} via ChatOllama...")
         messages = [
             SystemMessage(content=system_prompt),
             HumanMessage(content=user_content)
         ]
-        
         response = llm.invoke(messages)
-        final_decision_text = response.content
-        
-        # 5. Update State robustly
-        state["final_output"] = final_decision_text
+        state["final_output"] = response.content
         logger.info("Successfully generated Final HR Decision")
-        
+
     except Exception as e:
         logger.error(f"Agent failed to generate decision: {str(e)}")
         state["final_output"] = f"CRITICAL SYSTEM ERROR in Decision Agent: {str(e)}"
-        
+
     return state
