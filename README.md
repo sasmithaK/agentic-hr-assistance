@@ -107,12 +107,12 @@ local_data/job_description/jd_software_engineer.txt
 ### Batch Mode (Recommended — Multiple Resumes)
 Place all PDF resumes into `local_data/input_resumes/`, then run:
 ```bash
-python src/main.py --folder "local_data/input_resumes" --jd "local_data/job_description/jd_software_engineer.txt"
+python -m src.main --folder "local_data/input_resumes" --jd "local_data/job_description/jd_software_engineer.txt"
 ```
 
 ### Single Resume Mode
 ```bash
-python src/main.py --resume "local_data/input_resumes/applicant_1.pdf" --jd "local_data/job_description/jd_software_engineer.txt"
+python -m src.main --resume "local_data/input_resumes/applicant_1.pdf" --jd "local_data/job_description/jd_software_engineer.txt"
 ```
 
 ### Outputs
