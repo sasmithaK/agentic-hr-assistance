@@ -1,5 +1,10 @@
 import argparse
 import os
+import sys
+
+# Add project root to sys.path to allow absolute imports when running directly
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from langgraph.graph import StateGraph, END
 from src.state.graph_state import AgentState
 from src.agents.resume_agent import resume_parsing_node
