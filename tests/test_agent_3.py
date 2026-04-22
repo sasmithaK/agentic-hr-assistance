@@ -22,8 +22,7 @@ def mock_state() -> AgentState:
         "final_output": ""
     }
 
-@pytest.mark.skipif(os.system("curl -s http://localhost:11434/api/tags > /dev/null") != 0, 
-                    reason="Requires local Ollama instance running")
+@pytest.mark.ollama
 def test_gap_agent_accuracy(mock_state):
     """
     LLM-as-a-Judge test for Agent 3 (Gap Analysis)
