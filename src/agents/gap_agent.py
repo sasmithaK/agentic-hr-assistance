@@ -96,9 +96,9 @@ class GapAnalysisAgent:
             logger.error(f"Agent Error: {str(e)}")
             return {"gap_analysis": {"error": str(e)}}
 
-# Function to be used as a node in LangGraph
-def gap_analysis_node(state: AgentState) -> AgentState:
-    agent = GapAnalysisAgent()
+# LangGraph node entrypoint
+def gap_analysis_node(state: AgentState, model_name: str = "llama3:8b") -> AgentState:
+    agent = GapAnalysisAgent(model_name=model_name)
     result = agent.process(state)
     state["gap_analysis"] = result.get("gap_analysis", {})
     return state
