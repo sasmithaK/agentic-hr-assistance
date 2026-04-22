@@ -25,13 +25,28 @@ This is a 4-person project. Each member built one agent, one real-world tool, an
 | **Olivea** | Gap Analysis Agent | `search_duckduckgo` (Web Search) | AI Hallucination Check |
 | **Dinithi** | HR Decision Agent | `generate_pdf_report` (FPDF) | Output Formatting |
 
+## 📂 Repository Structure
+
+```text
+project/
+├── src/
+│   ├── main.py              # LangGraph Orchestrator
+│   ├── state/               # TypedDict definitions
+│   ├── agents/              # The 4 specialized LLM agents
+│   └── tools/               # Real-world interaction tools
+├── tests/                   # LLM-as-a-judge test suites
+├── local_data/              # Resumes, SQLite DB, Output PDFs
+├── scripts/                 # Setup scripts (e.g., DB scaffold)
+└── execution_trace.log      # Observability tracking
+```
+
 ## ⚙️ Setup Instructions
 
 ### 1. Prerequisites
 *   **Python 3.10** or higher.
 *   **Ollama**: Download and install from [ollama.com](https://ollama.com/download).
 
-### 2. Install Dependancies
+### 2. Install Dependencies
 
 ```bash
 pip install -r requirements.txt
