@@ -1,0 +1,32 @@
+# Job Description: Software Engineer
+
+## Company Overview
+We are a fast-growing technology company looking for a skilled Software Engineer
+to join our backend development team.
+
+## Role Summary
+You will design, build, and maintain scalable server-side systems and APIs.
+You will collaborate closely with product and frontend teams.
+
+## Key Responsibilities
+- Design and develop RESTful APIs and microservices
+- Write clean, testable, and well-documented Python code
+- Manage relational and NoSQL databases
+- Participate in code reviews and agile ceremonies
+- Deploy and maintain containerized services using Docker
+
+## Required Skills & Qualifications
+- **Programming:** Python (3+ years), JavaScript
+- **Frameworks:** FastAPI or Flask or Django
+- **Databases:** PostgreSQL, MongoDB
+- **DevOps:** Docker, Git, CI/CD pipelines
+- **Cloud:** Familiarity with AWS or Azure
+- **Testing:** Unit testing, integration testing (pytest)
+
+## Preferred Qualifications
+- Experience with LangChain or AI/ML integrations
+- BSc in Computer Science, Software Engineering, or equivalent
+- Strong communication and teamwork skills
+
+## Experience Required
+Minimum 2 years of professional software development experience.
