@@ -19,9 +19,8 @@ def mock_state() -> AgentState:
         "final_output": ""
     }
 
-# Skip this test if ollama is not running in the CI/CD environment
-@pytest.mark.skipif(os.system("curl -s http://localhost:11434/api/tags > /dev/null") != 0, 
-                    reason="Requires local Ollama instance running")
+# Skip this test if ollama is not running
+@pytest.mark.ollama
 def test_resume_agent_extraction_accuracy(monkeypatch, mock_state):
     """
     LLM-as-a-Judge test for Agent 1 (Resume Parsing)

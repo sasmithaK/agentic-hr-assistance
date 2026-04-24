@@ -7,3 +7,9 @@ pydantic
 pytest
 pypdf
 duckduckgo-search
+pandas
+matplotlib
+pytesseract
+pdf2image
+wikipedia
+requests

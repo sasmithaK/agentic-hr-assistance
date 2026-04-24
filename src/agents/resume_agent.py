@@ -28,6 +28,7 @@ class ResumeParsingAgent:
             "name": "<Candidate Full Name>",
             "skills": ["<Skill 1>", "<Skill 2>", ...],
             "experience_years": <Total years of experience as an integer>,
+            "education": "<Highest qualification, e.g. BSc Computer Science, University of X>",
             "role": "<Current or most recent job title>"
         }
         """
@@ -86,9 +87,9 @@ class ResumeParsingAgent:
             logger.error(f"Agent Error: {str(e)}")
             return {"candidate_profile": {"error": str(e)}}
 
-# Function to be used as a node in LangGraph
-def resume_parsing_node(state: AgentState) -> AgentState:
-    agent = ResumeParsingAgent()
+# LangGraph node entrypoint
+def resume_parsing_node(state: AgentState, model_name: str = "llama3:8b") -> AgentState:
+    agent = ResumeParsingAgent(model_name=model_name)
     result = agent.process(state)
     state["candidate_profile"] = result.get("candidate_profile", {})
     return state

@@ -31,9 +31,7 @@ def test_generate_pdf_report_success():
     if os.path.exists(filepath):
          os.remove(filepath)
 
-# Skip this test if ollama is not running in the CI/CD environment
-@pytest.mark.skipif(os.system("curl -s http://localhost:11434/api/tags > /dev/null") != 0, 
-                    reason="Requires local Ollama instance running")
+@pytest.mark.ollama
 def test_decision_agent_formatting_and_constraints():
     """
     Automated Evaluation (Property-Based / Output format assertion):
